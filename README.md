@@ -71,3 +71,8 @@ No correction is applied without a recorded approval and linked evidence.
 | Suspected fraud or unauthorized state change | Security on-call, in addition to the reconciliation owner |
 
 Escalate with: alert type, job ID, provider, window, report ID, and a summary of findings. Never resolve a critical alert by manually editing financial state.
+
+## Handsoff notes
+
+<!-- handsoff-issue-882 -->
+- #882: Duplicate import of non-existent types crashes the webhook service
