@@ -35,6 +35,17 @@ interface SchedulerConfig {
   lockKeyPrefix: string;
 }
 
+interface MonitoringConfig {
+  /** Sentry DSN. Empty disables Sentry export. */
+  sentryDsn: string;
+  /** Environment tag attached to exported events. */
+  environment: string;
+  /** Fraction of transactions sampled for tracing (0-1). */
+  tracesSampleRate: number;
+  /** When true, request/response bodies are scrubbed before logging. */
+  scrubRequestData: boolean;
+}
+
 interface Config {
   port: number;
   bridgeApiUrl: string;
@@ -43,6 +54,7 @@ interface Config {
   stellar: StellarConfig;
   soroban: SorobanConfig;
   scheduler: SchedulerConfig;
+  monitoring: MonitoringConfig;
 }
 
 const STELLAR_NETWORKS: Record<
@@ -113,6 +125,37 @@ function resolvePositiveInt(name: string, fallback: number): number {
   return value;
 }
 
+function resolveSampleRate(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw.trim() === "") {
+    return fallback;
+  }
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0 || value > 1) {
+    throw new Error(
+      `Invalid ${name} "${raw}". Expected a number between 0 and 1.`
+    );
+  }
+  return value;
+}
+
+function resolveBoolean(name: string, fallback: boolean): boolean {
+  const raw = process.env[name];
+  if (raw === undefined || raw.trim() === "") {
+    return fallback;
+  }
+  const normalized = raw.trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(normalized)) {
+    return true;
+  }
+  if (["0", "false", "no", "off"].includes(normalized)) {
+    return false;
+  }
+  throw new Error(
+    `Invalid ${name} "${raw}". Expected a boolean (true/false).`
+  );
+}
+
 function resolveReplicaId(): string {
   const raw = (process.env.SCHEDULER_REPLICA_ID || "").trim();
   if (raw) {
@@ -167,5 +210,11 @@ export const config: Config = {
     leaseRenewIntervalMs: schedulerLeaseRenewIntervalMs,
     redisUrl: process.env.SCHEDULER_REDIS_URL || process.env.REDIS_URL || "",
     lockKeyPrefix: process.env.SCHEDULER_LOCK_KEY_PREFIX || "scheduler:lock:",
+  },
+  monitoring: {
+    sentryDsn: process.env.SENTRY_DSN || "",
+    environment: process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || "development",
+    tracesSampleRate: resolveSampleRate("SENTRY_TRACES_SAMPLE_RATE", 0),
+    scrubRequestData: resolveBoolean("MONITORING_SCRUB_REQUEST_DATA", true),
   },
 };
