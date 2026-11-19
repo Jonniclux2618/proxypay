@@ -22,6 +22,19 @@ interface SorobanConfig {
   retryMaxDelayMs: number;
 }
 
+interface SchedulerConfig {
+  /** Unique identity for this replica, used as the lock owner. */
+  replicaId: string;
+  /** How long a job lease is held before it must be renewed. */
+  leaseTtlMs: number;
+  /** How often the lease holder renews its lease. */
+  leaseRenewIntervalMs: number;
+  /** Redis URL used for distributed job locks. Empty disables distributed locking. */
+  redisUrl: string;
+  /** Key prefix for scheduler lock keys. */
+  lockKeyPrefix: string;
+}
+
 interface Config {
   port: number;
   bridgeApiUrl: string;
@@ -29,6 +42,7 @@ interface Config {
   webhookSecret: string;
   stellar: StellarConfig;
   soroban: SorobanConfig;
+  scheduler: SchedulerConfig;
 }
 
 const STELLAR_NETWORKS: Record<
@@ -99,8 +113,29 @@ function resolvePositiveInt(name: string, fallback: number): number {
   return value;
 }
 
+function resolveReplicaId(): string {
+  const raw = (process.env.SCHEDULER_REPLICA_ID || "").trim();
+  if (raw) {
+    return raw;
+  }
+  return `${process.env.HOSTNAME || "replica"}-${process.pid}`;
+}
+
 const stellarNetwork = resolveStellarNetwork();
 const stellarNetworkDefaults = STELLAR_NETWORKS[stellarNetwork];
+
+const schedulerLeaseTtlMs = resolvePositiveInt("SCHEDULER_LEASE_TTL_MS", 30_000);
+const schedulerLeaseRenewIntervalMs = resolvePositiveInt(
+  "SCHEDULER_LEASE_RENEW_INTERVAL_MS",
+  Math.max(1, Math.floor(schedulerLeaseTtlMs / 3))
+);
+
+if (schedulerLeaseRenewIntervalMs >= schedulerLeaseTtlMs) {
+  throw new Error(
+    `Invalid SCHEDULER_LEASE_RENEW_INTERVAL_MS "${schedulerLeaseRenewIntervalMs}". ` +
+      `Must be less than SCHEDULER_LEASE_TTL_MS "${schedulerLeaseTtlMs}".`
+  );
+}
 
 export const config: Config = {
   port: Number(process.env.PORT) || 3000,
@@ -125,5 +160,12 @@ export const config: Config = {
     maxRetries: resolvePositiveInt("SOROBAN_MAX_RETRIES", 3),
     retryBaseDelayMs: resolvePositiveInt("SOROBAN_RETRY_BASE_DELAY_MS", 500),
     retryMaxDelayMs: resolvePositiveInt("SOROBAN_RETRY_MAX_DELAY_MS", 8_000),
+  },
+  scheduler: {
+    replicaId: resolveReplicaId(),
+    leaseTtlMs: schedulerLeaseTtlMs,
+    leaseRenewIntervalMs: schedulerLeaseRenewIntervalMs,
+    redisUrl: process.env.SCHEDULER_REDIS_URL || process.env.REDIS_URL || "",
+    lockKeyPrefix: process.env.SCHEDULER_LOCK_KEY_PREFIX || "scheduler:lock:",
   },
 };
