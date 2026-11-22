@@ -8,7 +8,14 @@ on:
   schedule:
     # Weekly backup restore drill (Mondays 03:00 UTC)
     - cron: "0 3 * * 1"
+    # Weekly DR failover drill in staging (Wednesdays 04:00 UTC)
+    - cron: "0 4 * * 3"
   workflow_dispatch:
+    inputs:
+      run_failover_drill:
+        description: "Run the controlled DR failover drill in staging"
+        type: boolean
+        default: false
 
 env:
   IMAGE: ${{ github.repository }}

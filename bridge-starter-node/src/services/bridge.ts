@@ -235,6 +235,97 @@ export class SorobanResourceLimitError extends Error {
   }
 }
 
+/**
+ * Shared provider adapter contract. Every supported provider implementation
+ * (live or mock) must satisfy this surface so the contract suite can run the
+ * same assertions against each one.
+ */
+export interface ProviderAdapter {
+  readonly name: string;
+  authenticate(credentials: ProviderCredentials): Promise<ProviderAuthResult>;
+  createCollection(
+    request: ProviderCollectionRequest,
+  ): Promise<ProviderCollectionResult>;
+  createPayout(request: ProviderPayoutRequest): Promise<ProviderPayoutResult>;
+  getStatus(reference: string): Promise<ProviderStatusResult>;
+  handleCallback(payload: ProviderCallbackPayload): ProviderCallbackResult;
+  createBatch(
+    requests: ProviderPayoutRequest[],
+  ): Promise<ProviderBatchResult>;
+}
+
+export interface ProviderCredentials {
+  apiKey: string;
+  apiSecret?: string;
+}
+
+export interface ProviderAuthResult {
+  authenticated: boolean;
+  token?: string;
+  error?: string;
+}
+
+export interface ProviderCollectionRequest {
+  amount: number;
+  currency: string;
+  reference: string;
+}
+
+export interface ProviderCollectionResult {
+  id: string;
+  status: ProviderOperationStatus;
+  reference: string;
+}
+
+export interface ProviderPayoutRequest {
+  amount: number;
+  currency: string;
+  destination: string;
+  reference: string;
+}
+
+export interface ProviderPayoutResult {
+  id: string;
+  status: ProviderOperationStatus;
+  reference: string;
+}
+
+export type ProviderOperationStatus =
+  | "pending"
+  | "succeeded"
+  | "failed";
+
+export interface ProviderStatusResult {
+  reference: string;
+  status: ProviderOperationStatus;
+  updatedAt: string;
+}
+
+export interface ProviderCallbackPayload {
+  reference: string;
+  status: ProviderOperationStatus;
+  signature?: string;
+}
+
+export interface ProviderCallbackResult {
+  accepted: boolean;
+  reference: string;
+  status: ProviderOperationStatus;
+}
+
+export interface ProviderBatchItemResult {
+  reference: string;
+  success: boolean;
+  result?: ProviderPayoutResult;
+  error?: string;
+}
+
+export interface ProviderBatchResult {
+  items: ProviderBatchItemResult[];
+  succeeded: number;
+  failed: number;
+}
+
 const getSorobanLimits = (): SorobanLimits => {
   const env = config as unknown as Record<string, string | number | undefined>;
   const num = (value: unknown, fallback: number): number => {
