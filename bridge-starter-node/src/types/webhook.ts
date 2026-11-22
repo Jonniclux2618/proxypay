@@ -46,22 +46,85 @@ export interface StellarPayoutValidationResult {
   errors: StellarPayoutValidationError[];
 }
 
-export type CallbackProvider = 'stripe' | 'github' | 'generic';
-
-export type CallbackSignatureAlgorithm = 'sha256' | 'sha1' | 'sha512';
-
-export interface CallbackSignatureConfig {
-  provider: CallbackProvider;
-  secret: string;
-  algorithm: CallbackSignatureAlgorithm;
-  header: string;
-  encoding: 'hex' | 'base64';
-  prefix?: string;
+/**
+ * Shared provider adapter contract.
+ *
+ * Every supported provider implementation must satisfy this interface so the
+ * reusable contract test suite can run identical assertions against each
+ * provider mock and recorded sanitized API fixture.
+ */
+export interface ProviderAuthResult {
+  authenticated: boolean;
+  token?: string;
+  error?: string;
 }
 
-export interface SignedCallbackFixture {
-  provider: CallbackProvider;
-  config: CallbackSignatureConfig;
-  rawBody: string;
-  headers: Record<string, string>;
+export interface ProviderCollectionRequest {
+  amount: number;
+  currency: string;
+  reference: string;
+  customerId: string;
+}
+
+export interface ProviderCollectionResult {
+  id: string;
+  status: 'pending' | 'succeeded' | 'failed';
+  amount: number;
+  currency: string;
+  error?: string;
+}
+
+export interface ProviderPayoutRequest {
+  amount: number;
+  currency: string;
+  reference: string;
+  destination: string;
+}
+
+export interface ProviderPayoutResult {
+  id: string;
+  status: 'pending' | 'succeeded' | 'failed';
+  amount: number;
+  currency: string;
+  error?: string;
+}
+
+export interface ProviderStatusResult {
+  id: string;
+  status: 'pending' | 'succeeded' | 'failed';
+  updatedAt: string;
+}
+
+export interface ProviderCallbackResult {
+  handled: boolean;
+  eventType: string;
+  reference?: string;
+}
+
+export interface ProviderBatchItemResult<T> {
+  reference: string;
+  success: boolean;
+  result?: T;
+  error?: string;
+}
+
+export interface ProviderBatchResult<T> {
+  items: ProviderBatchItemResult<T>[];
+  succeeded: number;
+  failed: number;
+}
+
+export interface ProviderAdapter {
+  readonly name: string;
+  authenticate(credentials: Record<string, string>): Promise<ProviderAuthResult>;
+  collect(request: ProviderCollectionRequest): Promise<ProviderCollectionResult>;
+  payout(request: ProviderPayoutRequest): Promise<ProviderPayoutResult>;
+  getStatus(id: string): Promise<ProviderStatusResult>;
+  handleCallback(payload: unknown): Promise<ProviderCallbackResult>;
+  collectBatch(
+    requests: ProviderCollectionRequest[],
+  ): Promise<ProviderBatchResult<ProviderCollectionResult>>;
+  payoutBatch(
+    requests: ProviderPayoutRequest[],
+  ): Promise<ProviderBatchResult<ProviderPayoutResult>>;
 }
