@@ -103,3 +103,6 @@ Exercise the procedure regularly in staging (never against production):
 
 <!-- handsoff-issue-781 -->
 - #781: Retry external object deletion after database purge
+
+<!-- handsoff-issue-837 -->
+- #837: Add ownership and role tests for every sensitive endpoint
